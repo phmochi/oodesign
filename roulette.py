@@ -1,4 +1,6 @@
 import random
+from exceptions import InvalidBet
+import pprint
 
 class Outcome:
     def __init__(self, name, odds):
@@ -11,17 +13,6 @@ class Outcome:
         '''
         self.name = name
         self.odds = odds
-        
-    def win_amount(self, amount):
-        '''Calculates the total win amount.
-        
-        Parameters:
-            amount : number
-        
-        Returns:
-            number : amount * odds
-        '''
-        return amount*self.odds
     
     def __eq__(self, other):
         '''Return True if both Outcomes have the same name'''
@@ -51,19 +42,30 @@ class Bin(frozenset):
 class Wheel:
     '''Manages and randomly selects a bin to simulate a roulette wheel.
     
-    Fields:
+    Properties:
         bins: Contains bin instances.
         rng: Random number generator used to select bins.
+        all_outcomes: Set of all possible outcomes.
     '''
     
     def __init__(self, seed=None):
         self.bins = [Bin([]) for _ in range(38)]
         self.rng = random.Random()
+        self.all_outcomes = set()
         if seed:
             self.rng.seed(seed)
         
-    def add_outcome(self, number, outcome):
-        self.bins[number] |= Bin([outcome])
+    def add_outcome(self, bin, outcome):
+        if outcome not in self.all_outcomes:
+            self.all_outcomes.add(outcome)
+        self.bins[bin] |= Bin([outcome])
+        
+    def get_outcome(self, name):
+        outcome = [oc for oc in self.all_outcomes if oc.name == name]
+        if outcome:
+            return outcome[0]
+        
+        return None
     
     def add_bin(self, idx, bin):
         self.bins[idx] = bin
@@ -248,3 +250,72 @@ class BinBuilder:
         self.add_column_bets(wheel)
         self.add_even_money_bets(wheel)
     
+class Bet:
+    '''Manages the amount of money wagered on Outcomes.
+    
+    Properties:
+        amount: The amount bet
+        outcome: The outcome that was bet on
+    '''
+    def __init__(self, amount, outcome):
+        self.amount = amount
+        self.outcome = outcome
+        
+    def win_amount(self):
+        '''Calculates the total win amount.
+        
+        Returns:
+            number : amount * odds
+        '''
+        return self.amount*self.outcome.odds
+    
+    def lose_amount(self):
+        '''Lose amount is same as win amount, but used differently.
+        
+        Returns:
+            number : amount * odds
+        '''
+        return self.win_amount()
+    
+    def __str__(self):
+        '''Returns string represenation of the bet with form "amount on outcome'''
+        return "{} on {}".format(self.amount, self.outcome)
+    
+    def __repr__(self):
+        '''Returns string representation with the form Bet(amount, outcome)'''
+        return "Bet({}, {})".format(self.amount, self.outcome)
+        
+class Table:
+    ''' Manages all the bets currently active.
+    
+    Properties:
+        limit: The table limit. Sum of all bets must not exceed this.
+        minimum: The minimum bet allowed.
+        bets: List of active bets.
+    '''
+    def __init__(self, limit, minimum):
+        self.limit = limit
+        self.minimum = minimum
+        self.bets = []
+        
+    def place_bet(self, bet):
+        self.bets.append(bet)
+        if not self.is_valid():
+            raise InvalidBet
+    
+    def __iter__(self):
+        return iter(self.bets)
+    
+    def __str__(self):
+        return pprint.saferepr(self.bets)
+    
+    def __repr__(self):
+        return "Table({})".format("".join((str(x) for x in self.bets)))
+    
+    def is_valid(self):
+        if sum(x.amount for x in self.bets) > self.limit:
+            return False
+        if sum(x.amount < self.minimum for x in self.bets):
+            return False
+        return True
+            

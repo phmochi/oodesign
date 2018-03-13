@@ -159,6 +159,15 @@ class TestBinBuilder(unittest.TestCase):
                 self.assertIn(red, self.wheel.get(n))
             else:
                 self.assertIn(black, self.wheel.get(n))
+                
+    def test_bin_lens(self):
+        ans = [1,11,13,11,14,17,14,14,17,14,14,17,14,14,17,14,14,17,14,14,17, \
+               14,14,17,14,14,17,14,14,17,14,14,17,14,11,13,11,1]
+        
+        self.assertListEqual(ans, [len(x) for x in self.wheel.bins],
+                                   "Bin lengths do not match.")
+        
+        
 
 if __name__ == "__main__":
     unittest.main()

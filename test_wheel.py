@@ -41,6 +41,14 @@ class GIVEN_wheel_WHEN_next_THEN_random_choice(unittest.TestCase):
         b1 = Bin([Outcome("Red", 5)])
         self.wheel.add_bin(3, b1)
         self.assertEqual(self.wheel.get(3), b1, "Retrieved bin not correct.")
+        
+    def test_get_outcome(self):
+        o1 = Outcome("0", 35)
+        self.wheel.add_outcome(4, o1)
+        self.assertEqual(self.wheel.get_outcome("0"), o1, 
+                         "Get Outcome returns incorrect Outcome.")
+        self.assertEqual(self.wheel.get_outcome("black"), None,
+                         "Get Outcome that doesn't exist should return None.")
     
 if __name__ == "__main__":
     unittest.main()

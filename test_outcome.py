@@ -21,10 +21,5 @@ class TestOutcome(unittest.TestCase):
         o2 = Outcome("Any Craps", 8)
         self.assertEqual(hash(o1), hash(o2), "Hashes not equal.")
         
-    def test_win_amount(self):
-        '''Check that win amounts are calculated correctly'''
-        o1 = Outcome("Any Craps", 8)
-        self.assertEqual(40, o1.win_amount(5), "Win amount doesn't match.")
-        
 if __name__ == "__main__":
     unittest.main()
