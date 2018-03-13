@@ -9,7 +9,7 @@ class TestBinBuilder(unittest.TestCase):
         
     def test_straight_bets(self):
         '''
-        Each bin (0-36) should have its own straight bet with odds 1:35.
+        Each bin (0-36) should have its own straight bet with odds 35:1.
         00 should have a similar straight bet at index 37 of the wheel.
         '''
         for i in range(0,37):
@@ -65,6 +65,17 @@ class TestBinBuilder(unittest.TestCase):
             self.assertIn(street_bet, self.wheel.get(n+2))
             
     def test_corner_bets(self):
+        '''
+        Corners consist of bins sharing a corner on the board. Between 1-4
+        bins can share a corner, but it can be observed that for any corner with
+        under 4 bins, a better bet can be made with 4 bins including the original
+        bins, so corner bets will only be added for 4 bin sets.
+        
+        Corners can be found by iterating over the first 2 columns up to the 
+        last row and indexing (n, n+1, n+3, n+4). This creates a corner block
+        from a bin, its neighbor to the right, its neighbor below it, and its
+        neighbor to its bottom right.
+        '''
         def check_corner(self, n)    :
             corner_bet = Outcome("{}-{}-{}-{}".format(n,n+1,n+3,n+4), 8)
             self.assertIn(corner_bet, self.wheel.get(n))
@@ -80,6 +91,12 @@ class TestBinBuilder(unittest.TestCase):
             check_corner(self, n2)
     
     def test_line_bets(self):
+        '''
+        Line blocks consist of 6 bins each. Each line is the line between
+        rows on the roulette board. As there are 12 rows, there are 11 lines,
+        and relevant bins can be found iterating over consecutive 6 bin blocks
+        from the first up to the last row.
+        '''
         for row in range(10):
             n = 3*row + 1
             line_bet = Outcome("{}-{}-{}-{}-{}-{}".format(*(n+i for i in 
@@ -88,6 +105,7 @@ class TestBinBuilder(unittest.TestCase):
                 self.assertIn(line_bet, self.wheel.get(n+i))
     
     def test_dozen_bets(self):
+        '''Dozen blocks consist of 12 bin intervals: 1-12, 13-24, 25-36.'''
         for d in range(3):
             dozen_bet = Outcome("dozen({})".format(d+1), 2)
             for m in range(12):
@@ -95,13 +113,29 @@ class TestBinBuilder(unittest.TestCase):
                 self.assertIn(dozen_bet, self.wheel.get(idx))
     
     def test_column_bets(self):
+        '''Column blocks consist of the 12 bins in a single column.'''
         for c in range(3):
-            column_bet = Outcome("column({})".format(c), 2)
+            column_bet = Outcome("column({})".format(c+1), 2)
             for r in range(12):
                 idx = 3*r + c + 1
                 self.assertIn(column_bet, self.wheel.get(idx))
     
     def test_even_money_bets(self):
+        '''
+        Even money bets consist of 6 types:
+            1. Red
+                Red bins on the boards.
+            2. Black
+                Black bins on the board.
+            3. Even
+                Even bins on the board.
+            4. Odd
+                Odd bins on the board.
+            5. High
+                Bins < 19.
+            6. Low
+                Bins >= 19.
+        '''
         red = Outcome("red", 1)
         black = Outcome("black", 1)
         even = Outcome("even", 1)
@@ -110,7 +144,7 @@ class TestBinBuilder(unittest.TestCase):
         low = Outcome("low", 1)
         
         red_bins = {1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36}
-        for n in range(38):
+        for n in range(1,37):
             if n >= 1 and n < 19:
                 self.assertIn(low, self.wheel.get(n))
             elif n >= 19 and n < 37:

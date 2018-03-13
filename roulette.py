@@ -76,7 +76,7 @@ class Wheel:
     
 class BinBuilder:
     def add_straight_bets(self, wheel):
-        '''Adds straight bets to their bins with odds 1:35.
+        '''Adds straight bets to their bins with odds 35:1.
         
         Each bin (0-36) should have its own straight bet.
         00 should have a similar straight bet at index 37 of the wheel.
@@ -87,7 +87,7 @@ class BinBuilder:
         wheel.add_outcome(37, Outcome("00", ODDS))
     
     def add_split_bets(self, wheel):
-        '''Adds split bets to their corresponding bins with odds 1:17.
+        '''Adds split bets to their corresponding bins with odds 17:1.
         
         A pair consists of two adjacent bins, left/right or top/down.
         Left/right pairs can be found by iterating over the first 2 columns,
@@ -115,7 +115,7 @@ class BinBuilder:
             add_top_down_pair(pair_outcome, n, wheel)
     
     def add_street_bets(self, wheel):
-        '''Add street bets to their corresponding bins with odds 1:11.
+        '''Add street bets to their corresponding bins with odds 11:1.
         
         A street bet consists of a row of 3 bins.
         Street bets can be found by iterating over each element in the first
@@ -129,19 +129,114 @@ class BinBuilder:
                 wheel.add_outcome(n+i, street_outcome)
     
     def add_corner_bets(self, wheel):
-        pass
+        '''Add corner bets to their corresponding bins with odds 8:1.
+        
+        Corners consist of bins sharing a corner on the board. Between 1-4
+        bins can share a corner, but it can be observed that for any corner with
+        under 4 bins, a better bet can be made with 4 bins including the original
+        bins, so corner bets will only be added for 4 bin sets.
+        
+        Corners can be found by iterating over the first 2 columns up to the 
+        last row and indexing (n, n+1, n+3, n+4). This creates a corner block
+        from a bin, its neighbor to the right, its neighbor below it, and its
+        neighbor to its bottom right.
+        '''
+        def add_corner_block(idx, wheel):
+            ODDS = 8
+            outcome = Outcome("{}-{}-{}-{}".format(*(idx + i for i in [0,1,3,4])), ODDS)
+            for i in [0,1,3,4]:
+                wheel.add_outcome(idx+i, outcome)
+        
+        for r in range(11):
+            left_n = 3*r + 1
+            add_corner_block(left_n, wheel)
+            
+            right_n = 3*r + 2
+            add_corner_block(right_n, wheel)
 
     def add_line_bets(self, wheel):
-        pass
+        '''Add line bets to their corresponding bins with odds 5:1.
+        
+        Line blocks consist of 6 bins each. Each line is the line between
+        rows on the roulette board. As there are 12 rows, there are 11 lines,
+        and relevant bins can be found iterating over consecutive 6 bin blocks
+        from the first up to the last row.
+        '''
+        ODDS = 5
+        for r in range(11):
+            n = 3*r + 1
+            idxs = [n + i for i in range(6)]
+            line_outcome = Outcome("{}-{}-{}-{}-{}-{}".format(*idxs), ODDS)
+            for idx in idxs:
+                wheel.add_outcome(idx, line_outcome)
+            
     
     def add_dozen_bets(self, wheel):
-        pass
+        '''Add dozen bets to their corresponding bins with odds 2:1.
+        
+        Dozen blocks consist of 12 bin intervals: 1-12, 13-24, 25-36.
+        '''
+        ODDS = 2
+        for d in range(3):
+            dozen_outcome = Outcome("dozen({})".format(d+1), ODDS)
+            for m in range(12):
+                idx = 12*d + m + 1
+                wheel.add_outcome(idx, dozen_outcome)
     
     def add_column_bets(self, wheel):
-        pass
+        '''Add column bets to their corresponding bins with odds 2:1.
+        
+        Column blocks consist of the 12 bins in a single column.
+        '''
+        ODDS = 2
+        for c in range(3):
+            col_outcome = Outcome("column({})".format(c+1), ODDS)
+            for r in range(12):
+                idx = 3*r + c + 1
+                wheel.add_outcome(idx, col_outcome)
     
     def add_even_money_bets(self, wheel):
-        pass
+        '''Add even money bets to their corresponding bins with odds 1:1.
+        
+        Even money bets consist of 6 types:
+            1. Red
+                Red bins on the boards.
+            2. Black
+                Black bins on the board.
+            3. Even
+                Even bins on the board.
+            4. Odd
+                Odd bins on the board.
+            5. High
+                Bins < 19.
+            6. Low
+                Bins >= 19.
+        '''
+        ODDS = 1
+        red = Outcome("red", ODDS)
+        black = Outcome("black", ODDS)
+        even = Outcome("even", ODDS)
+        odd = Outcome("odd", ODDS)
+        high = Outcome("high", ODDS)
+        low = Outcome("low", ODDS)
+        
+        red_bins = {1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36}
+        
+        for n in range(1, 37):
+            if n >= 1 and n < 19:
+                wheel.add_outcome(n, low)
+            else:
+                wheel.add_outcome(n, high)
+                
+            if n % 2 == 0:
+                wheel.add_outcome(n, even)
+            else:
+                wheel.add_outcome(n, odd)
+                
+            if n in red_bins:
+                wheel.add_outcome(n, red)
+            else:
+                wheel.add_outcome(n, black)
         
     def build_bins(self, wheel):
         self.add_straight_bets(wheel)
