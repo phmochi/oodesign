@@ -160,14 +160,18 @@ class TestBinBuilder(unittest.TestCase):
             else:
                 self.assertIn(black, self.wheel.get(n))
                 
+    def test_five_bets(self):
+        '''Bins for 0 and 00 contain "Five Bet" Outcome (00-0-1-2-3)'''
+        five_bet_outcome = Outcome("00-0-1-2-3", 6)
+        self.assertIn(five_bet_outcome, self.wheel.get(0))
+        self.assertIn(five_bet_outcome, self.wheel.get(37))
+                
     def test_bin_lens(self):
-        ans = [1,11,13,11,14,17,14,14,17,14,14,17,14,14,17,14,14,17,14,14,17, \
-               14,14,17,14,14,17,14,14,17,14,14,17,14,11,13,11,1]
+        ans = [2,12,14,12,14,17,14,14,17,14,14,17,14,14,17,14,14,17,14,14,17, \
+               14,14,17,14,14,17,14,14,17,14,14,17,14,11,13,11,2]
         
         self.assertListEqual(ans, [len(x) for x in self.wheel.bins],
                                    "Bin lengths do not match.")
         
-        
-
 if __name__ == "__main__":
     unittest.main()

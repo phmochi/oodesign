@@ -5,6 +5,12 @@ from roulette import Outcome, Bin, Wheel
 class GIVEN_wheel_WHEN_next_THEN_random_choice(unittest.TestCase):
     def setUp(self):
         self.wheel = Wheel(1)
+        
+    def test_initialize(self):
+        self.assertEqual(len(self.wheel.bins), 38, "Should be 38 bins.")
+        for b in self.wheel.bins:
+            self.assertGreater(len(b), 0, "Should be more than 0 Outcome in each bin.")
+            self.assertLess(len(b), 20, "Should be less than 20 Outcome in each bin.")
     
     def test_add_bin(self):
         b1 = Bin([Outcome("0", 35)])
@@ -26,16 +32,10 @@ class GIVEN_wheel_WHEN_next_THEN_random_choice(unittest.TestCase):
         self.assertNotEqual(self.wheel.next(), b2, "Next should not return same bin.")
         
     def test_add_outcome(self):
-        o1 = Outcome("0",35)
-        o2 = Outcome("00", 35)
-        
-        b1 = Bin([o1])
-        b2 = Bin([o1,o2])
+        o1 = Outcome("test",35)
         
         self.wheel.add_outcome(4, o1)
-        self.assertEqual(self.wheel.get(4), b1, "Bin not equivalent after adding Outcome.")
-        self.wheel.add_outcome(4, o2)
-        self.assertEqual(self.wheel.get(4), b2, "Bin not equivalent after adding Outcome.")
+        self.assertIn(o1, self.wheel.get(4), "Bin not equivalent after adding Outcome.")
         
     def test_get_bin(self):
         b1 = Bin([Outcome("Red", 5)])
@@ -47,7 +47,7 @@ class GIVEN_wheel_WHEN_next_THEN_random_choice(unittest.TestCase):
         self.wheel.add_outcome(4, o1)
         self.assertEqual(self.wheel.get_outcome("0"), o1, 
                          "Get Outcome returns incorrect Outcome.")
-        self.assertEqual(self.wheel.get_outcome("black"), None,
+        self.assertEqual(self.wheel.get_outcome("gibberish"), None,
                          "Get Outcome that doesn't exist should return None.")
     
 if __name__ == "__main__":

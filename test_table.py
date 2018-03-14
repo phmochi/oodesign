@@ -9,26 +9,32 @@ class TestTable(unittest.TestCase):
         1. Sum of bets exceeds table limit.
         2. Bet amount is below table minimum.
     '''
-    def test_invalid_bet(self):
-        table = Table(100,55)
-        o1 = Outcome("0", 35)
-        b1 = Bet(50, o1)
-        b2 = Bet(105, o1)
-        b3 = Bet(60, o1)
-        self.assertRaises(InvalidBet, table.place_bet, b1)
-        self.assertRaises(InvalidBet, table.place_bet, b2)
+    def setUp(self):
+        self.table1 = Table(100,55)
+        self.table2 = Table(100,55)
+        self.o1 = Outcome("0", 35)
+        self.b1 = Bet(50, self.o1)
+        self.b2 = Bet(105, self.o1)
+        self.b3 = Bet(60, self.o1)
         
-        table2 = Table(100,55)
-        table2.place_bet(b3)
-        self.assertRaises(InvalidBet, table2.place_bet, b1)
+    def test_invalid_bet(self):
+        self.assertRaises(InvalidBet, self.table1.place_bet, self.b1)
+        self.assertRaises(InvalidBet, self.table1.place_bet, self.b2)
+        
+        self.table2.place_bet(self.b3)
+        self.assertRaises(InvalidBet, self.table2.place_bet, self.b1)
     
     def test_table_add_bet(self):
         '''Tests that bets can be added to the table.'''
-        table = Table(100,55)
-        o1 = Outcome("0", 35)
-        b1 = Bet(60, o1)
-        table.place_bet(b1)
-        self.assertEqual(b1, next(iter(table)))
+        self.table1.place_bet(self.b3)
+        self.assertEqual(self.b3, next(iter(self.table1)))
+        
+    def test_table_clear_bet(self):
+        self.table1.place_bet(self.b3)
+        self.assertEqual(len(self.table1.bets), 1)
+        
+        self.table1.clear_bets()
+        self.assertEqual(len(self.table1.bets), 0)
 
 if __name__ == "__main__":
     unittest.main()

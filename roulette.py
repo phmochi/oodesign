@@ -32,6 +32,15 @@ class Outcome:
     def __repr__(self):
         return "Outcome({}, {})".format(self.name, self.odds)
     
+class PrisonOutcome(Outcome):
+    '''Special prison rule for Euro Roulette.
+    
+    When Outcome is a PrisonOutcome, the 0 bin becomes a special case where 
+    half the money is returned to the player for losing bets.
+    '''
+    def __repr__(self):
+        return "PrisonOutcome({}, {})".format(self.name, self.odds)
+    
 class Bin(frozenset): 
     '''Represents the 38 bins of the roulette wheel.
     
@@ -48,12 +57,23 @@ class Wheel:
         all_outcomes: Set of all possible outcomes.
     '''
     
-    def __init__(self, seed=None):
+    def __init__(self, seed=None, rules="american"):
         self.bins = [Bin([]) for _ in range(38)]
+    
         self.rng = random.Random()
         self.all_outcomes = set()
         if seed:
             self.rng.seed(seed)
+            
+        if rules == "american":
+            bb = BinBuilder()
+        elif rules == "european":
+            bb = EuroBinBuilder()
+        else:
+            bb = None
+                
+        if bb:
+            bb.build_bins(self)
         
     def add_outcome(self, bin, outcome):
         if outcome not in self.all_outcomes:
@@ -77,6 +97,7 @@ class Wheel:
         return self.bins[idx]
     
 class BinBuilder:
+    '''Adds winning Outcomes to each bin on the wheel'''
     def add_straight_bets(self, wheel):
         '''Adds straight bets to their bins with odds 35:1.
         
@@ -239,6 +260,13 @@ class BinBuilder:
                 wheel.add_outcome(n, red)
             else:
                 wheel.add_outcome(n, black)
+                
+    def add_five_bets(self, wheel):
+        '''Add five-bet (00-0-1-2-3) to bins 0,1,2,3, and 00 with odds 6:1.'''
+        five_bet = Outcome("00-0-1-2-3", 6)
+        for i in range(4):
+            wheel.add_outcome(i, five_bet)
+        wheel.add_outcome(37, five_bet)
         
     def build_bins(self, wheel):
         self.add_straight_bets(wheel)
@@ -249,6 +277,42 @@ class BinBuilder:
         self.add_dozen_bets(wheel)
         self.add_column_bets(wheel)
         self.add_even_money_bets(wheel)
+        self.add_five_bets(wheel)
+        
+class EuroBinBuilder(BinBuilder):
+    '''Modifies the rules for European Roulette.
+    
+    European roulette has a few differences from American roulette:
+        1. The 0 bin should return a PrisonOutcome instead of an Outcome.
+        2. There are no 5-bets (00-0-1-2-3), instead these are replaced with 4 bets (0-1-2-3).
+    '''
+    def add_straight_bets(self, wheel):
+        '''Adds straight bets to their bins with odds 35:1.
+        
+        Each bin (0-36) should have its own straight bet.
+        00 should have a similar straight bet at index 37 of the wheel.
+        '''
+        ODDS = 35
+        for n in range(1,37):
+            wheel.add_outcome(n, Outcome("{}".format(n), ODDS))
+        wheel.add_outcome(37, Outcome("00", ODDS))
+        wheel.add_outcome(0, PrisonOutcome("0", ODDS))
+        
+    def add_five_bets(self, wheel):
+        '''This bet doesn't exist in European Roulette, so do nothing'''
+        pass
+    
+    def add_four_bets(self, wheel):
+        '''Add four-bet to bin 0 with odds 6:1'''
+        four_bet = Outcome("0-1-2-3", 6)
+        for i in range(4):
+            wheel.add_outcome(i, four_bet)
+        
+    def build_bins(self, wheel):
+        '''Build bins as before, but add additional four bets'''
+        super().build_bins(wheel)
+        self.add_four_bets(wheel)
+    
     
 class Bet:
     '''Manages the amount of money wagered on Outcomes.
@@ -318,4 +382,64 @@ class Table:
         if sum(x.amount < self.minimum for x in self.bets):
             return False
         return True
+    
+    def clear_bets(self):
+        self.bets = []
             
+class Passenger57:
+    '''A test Player to check Game functionality.
+    
+    Passenger57 always bets on black.
+    Win/Lose returns True/False for testing in unittest.
+    '''
+    def __init__(self, table, wheel):
+        self.table = table
+        self.wheel = wheel
+
+        self.black = self.wheel.get_outcome("black")
+        
+    def place_bets(self):
+        self.table.place_bet(Bet(10, self.black))
+    
+    def win(self, bet):
+        return bet.win_amount()
+    
+    def lose(self, bet):
+        if isinstance(bet.outcome, PrisonOutcome):
+            return bet.lose_amount * 0.5
+        return 0
+    
+class Game:
+    '''Manages game state.
+    
+    Properties:
+        wheel: Wheel instance that selects random bins.
+        table: Table instance which holds ongoing bets.
+    '''
+    def __init__(self, wheel, table):
+        self.wheel = wheel
+        self.table = table
+        
+    def cycle(self, player):
+        '''Executes a single cycle of play with a given Player:
+            1. Calls on Player to place bets.
+            2. Retrieves winning Bin from Wheel
+            3. Iterates over Table's Bets and call corresponding win/lose function
+            
+        Returns:
+            num_wins : sum of win/loss amount for testing purposes.
+        '''
+        player.place_bets()
+        winning_outcomes = self.wheel.next()
+        outcomes = []
+        for b in self.table.bets:
+            if b.outcome in winning_outcomes:
+                outcomes.append(player.win(b))
+            else:
+                outcomes.append(player.lose(b))
+        
+        self.table.clear_bets()
+        return sum(outcomes)
+    
+    
+    
