@@ -92,7 +92,7 @@ class Wheel:
         self.bins[idx] = bin
     
     def next(self):
-        return self.bins[self.rng.randint(0,38)]
+        return self.bins[self.rng.randint(0,37)]
     
     def get(self, idx):
         return self.bins[idx]
@@ -405,7 +405,7 @@ class Game:
             3. Iterates over Table's Bets and call corresponding win/lose function
             
         Returns:
-            num_wins : sum of win/loss amount for testing purposes.
+            Sum of win/loss amount for testing purposes.
         '''
         if player.playing():
             player.place_bets()
@@ -415,7 +415,7 @@ class Game:
             if b.outcome in winning_outcomes:
                 outcomes.append(player.win(b))
             else:
-                outcomes.append(player.lose(b))
+                outcomes.append(player.lose(b))         
         
         self.table.clear_bets()
         return sum(outcomes)
@@ -426,12 +426,12 @@ class Player(abc.ABC):
     Properties:
         table: Table used to place bets.
         stake: Current stake.
-        rounds_to_go: Number of rounds left to play.
+        rounds: Number of rounds left to play.
     '''
     def __init__(self, table):
         self.table = table
         self.stake = None
-        self.rounds_to_go = None
+        self.rounds = None
     
     @abc.abstractmethod
     def playing(self):
@@ -441,13 +441,19 @@ class Player(abc.ABC):
     def place_bets(self):
         raise NotImplementedError
     
-    @abc.abstractmethod
     def win(self, bet):
-        raise NotImplementedError
+        return bet.win_amount()
         
-    @abc.abstractmethod
     def lose(self, bet):
-        raise NotImplementedError
+        if isinstance(bet.outcome, PrisonOutcome):
+            return bet.lose_amount * 0.5
+        return 0
+        
+    def set_stake(self, stake):
+        self.stake = stake
+        
+    def set_rounds(self, rounds):
+        self.rounds = rounds
         
 class Passenger57(Player):
     '''A test Player to check Game functionality.
@@ -462,16 +468,9 @@ class Passenger57(Player):
     def place_bets(self):
         self.table.place_bet(Bet(10, self.black))
     
-    def win(self, bet):
-        return bet.win_amount()
-    
     def playing(self):
         return True
     
-    def lose(self, bet):
-        if isinstance(bet.outcome, PrisonOutcome):
-            return bet.lose_amount * 0.5
-        return 0
     
 class Martingale(Player):
     '''Player that bets in Roulette.
@@ -482,18 +481,89 @@ class Martingale(Player):
     def __init__(self, table):
         super().__init__(table)
         self.loss_count = 0
-        self.bet_multiple = 1
         self.black = table.wheel.get_outcome("black")
         
     def place_bets(self):
         amount = 2**self.loss_count
+        if amount > self.table.limit:
+            amount = self.table.limit
+            
+        if amount > self.stake:
+            amount = self.stake
+        
         self.table.place_bet(Bet(amount, self.black))
+        self.stake -= amount
     
     def win(self, bet):
         self.loss_count = 0
+        self.stake += bet.amount
+        return super().win(bet)
     
     def lose(self, bet):
         self.loss_count += 1
+        return super().lose(bet)
         
     def playing(self):
-        return True
+        if self.rounds is None or self.stake is None:
+            return False
+        if self.rounds > 0 and self.stake >= self.table.minimum:
+            return True
+        
+        return False
+    
+class Simulator:
+    '''Simulator for gathering performance statistics on Player's strategy.
+    
+    Parameters:
+        init_duration: max number of rounds to have Player play.
+        init_stake: starting stakes for Player.
+        samples: number of games to simulate.
+        durations: list of how long Player was able to play in each simulation.
+        maxima: list of Player's max stake in each simulation
+        player: Player strategy to use.
+        game: Game to simulate.
+    
+    Methods:
+        session: initializes Player with initial settings and executes game
+            cycles until Player stops playing. Saves duration played as well as
+            max stake. Returns stake history for testing.
+        gather: executes session the number of times specified in samples.
+    '''
+    def __init__(self, game, player):
+        self.init_duration = 250
+        self.init_stake = 100
+        self.samples = 50
+        self.durations = []
+        self.maxima = []
+        self.player = player
+        self.game = game
+    
+    def session(self):
+        self.player.__init__(self.player.table)
+        self.player.set_rounds(self.init_duration)
+        self.player.set_stake(self.init_stake)
+        
+        stakes = [self.player.stake]
+        duration = 0
+        while self.player.playing():
+            self.game.cycle(self.player)
+            stakes.append(self.player.stake)
+            duration += 1
+        self.durations.append(duration)
+        self.maxima.append(max(stakes))
+        
+        return stakes
+    
+    def gather(self):
+        for _ in range(self.samples):    
+            self.session()
+            
+if __name__ == "__main__":
+    wheel = Wheel()
+    table = Table(1000, 1, wheel)
+    game = Game(table)
+    player = Martingale(table)
+    simulator = Simulator(game, player)
+    simulator.gather()
+    print(simulator.durations)
+    print(simulator.maxima)
