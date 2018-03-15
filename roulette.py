@@ -1,6 +1,7 @@
 import random
 from exceptions import InvalidBet
 import pprint
+import abc
 
 class Outcome:
     def __init__(self, name, odds):
@@ -357,10 +358,11 @@ class Table:
         minimum: The minimum bet allowed.
         bets: List of active bets.
     '''
-    def __init__(self, limit, minimum):
+    def __init__(self, limit, minimum, wheel):
         self.limit = limit
         self.minimum = minimum
         self.bets = []
+        self.wheel = wheel
         
     def place_bet(self, bet):
         self.bets.append(bet)
@@ -385,29 +387,6 @@ class Table:
     
     def clear_bets(self):
         self.bets = []
-            
-class Passenger57:
-    '''A test Player to check Game functionality.
-    
-    Passenger57 always bets on black.
-    Win/Lose returns True/False for testing in unittest.
-    '''
-    def __init__(self, table, wheel):
-        self.table = table
-        self.wheel = wheel
-
-        self.black = self.wheel.get_outcome("black")
-        
-    def place_bets(self):
-        self.table.place_bet(Bet(10, self.black))
-    
-    def win(self, bet):
-        return bet.win_amount()
-    
-    def lose(self, bet):
-        if isinstance(bet.outcome, PrisonOutcome):
-            return bet.lose_amount * 0.5
-        return 0
     
 class Game:
     '''Manages game state.
@@ -416,8 +395,7 @@ class Game:
         wheel: Wheel instance that selects random bins.
         table: Table instance which holds ongoing bets.
     '''
-    def __init__(self, wheel, table):
-        self.wheel = wheel
+    def __init__(self, table):
         self.table = table
         
     def cycle(self, player):
@@ -429,8 +407,9 @@ class Game:
         Returns:
             num_wins : sum of win/loss amount for testing purposes.
         '''
-        player.place_bets()
-        winning_outcomes = self.wheel.next()
+        if player.playing():
+            player.place_bets()
+        winning_outcomes = self.table.wheel.next()
         outcomes = []
         for b in self.table.bets:
             if b.outcome in winning_outcomes:
@@ -441,5 +420,80 @@ class Game:
         self.table.clear_bets()
         return sum(outcomes)
     
+class Player(abc.ABC):
+    '''Abstract Player class.
     
+    Properties:
+        table: Table used to place bets.
+        stake: Current stake.
+        rounds_to_go: Number of rounds left to play.
+    '''
+    def __init__(self, table):
+        self.table = table
+        self.stake = None
+        self.rounds_to_go = None
     
+    @abc.abstractmethod
+    def playing(self):
+        raise NotImplementedError
+    
+    @abc.abstractmethod
+    def place_bets(self):
+        raise NotImplementedError
+    
+    @abc.abstractmethod
+    def win(self, bet):
+        raise NotImplementedError
+        
+    @abc.abstractmethod
+    def lose(self, bet):
+        raise NotImplementedError
+        
+class Passenger57(Player):
+    '''A test Player to check Game functionality.
+    
+    Passenger57 always bets on black.
+    Win/Lose returns True/False for testing in unittest.
+    '''
+    def __init__(self, table):
+        self.table = table
+        self.black = self.table.wheel.get_outcome("black")
+        
+    def place_bets(self):
+        self.table.place_bet(Bet(10, self.black))
+    
+    def win(self, bet):
+        return bet.win_amount()
+    
+    def playing(self):
+        return True
+    
+    def lose(self, bet):
+        if isinstance(bet.outcome, PrisonOutcome):
+            return bet.lose_amount * 0.5
+        return 0
+    
+class Martingale(Player):
+    '''Player that bets in Roulette.
+    
+    Strategy: Doubles bet on black every loss and resets bet to a base amount 
+        on each win.
+    '''
+    def __init__(self, table):
+        super().__init__(table)
+        self.loss_count = 0
+        self.bet_multiple = 1
+        self.black = table.wheel.get_outcome("black")
+        
+    def place_bets(self):
+        amount = 2**self.loss_count
+        self.table.place_bet(Bet(amount, self.black))
+    
+    def win(self, bet):
+        self.loss_count = 0
+    
+    def lose(self, bet):
+        self.loss_count += 1
+        
+    def playing(self):
+        return True

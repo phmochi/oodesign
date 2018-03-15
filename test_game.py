@@ -1,17 +1,16 @@
-import pytest
 from roulette import Game, Passenger57, Table, Wheel
 
 class TestGame:    
     def setup_method(self):
         self.random_seed = 1
-        self.t = Table(100,5)
-        self.w = Wheel(seed=self.random_seed)
-        self.p = Passenger57(self.t,self.w)
-        self.g = Game(wheel=self.w, table=self.t)    
+        w = Wheel(seed=self.random_seed)
+        self.t = Table(100,5, w)
+        self.p = Passenger57(self.t)
+        self.g = Game(table=self.t)    
     
     def test_game_initialization(self):
         '''Checks that game initializes with a wheel and a table'''
-        assert isinstance(self.g.wheel, Wheel)
+        assert isinstance(self.g.table.wheel, Wheel)
         assert isinstance(self.g.table, Table)
     
     def test_passenger57(self):
