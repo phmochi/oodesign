@@ -563,8 +563,8 @@ class Simulator:
         self.init_duration = 250
         self.init_stake = 100
         self.samples = 50
-        self.durations = []
-        self.maxima = []
+        self.durations = IntegerStatistics()
+        self.maxima = IntegerStatistics()
         self.player = player
         self.game = game
     
@@ -590,6 +590,19 @@ class Simulator:
                 print(self.session())
             else:
                 self.session()
+                
+class IntegerStatistics(list):
+    '''Extension of List class to calculate statistical summaries.
+
+    functions:
+        mean: sum of values / number of values
+        stddev: sqrt(sum((values - mean)^2)/(number of values -1))
+    '''
+    def mean(self):
+        return sum(self)/len(self)
+
+    def stdev(self):
+        return (sum((x - self.mean())**2 for x in self)/(len(self) -1 ))**.5
             
 class SimulationBuilder():
     '''Wrapper to build simulators
@@ -638,6 +651,6 @@ class PlayerBuilder():
 if __name__ == "__main__":
     sb = SimulationBuilder(table_limit=1000)
     simulator = sb.get_simulator("sevenreds")
-    simulator.gather(debug=True)
+    simulator.gather(debug=False)
     print(simulator.durations)
     print(simulator.maxima)
