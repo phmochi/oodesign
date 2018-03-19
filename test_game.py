@@ -1,10 +1,10 @@
-from roulette import Game, Passenger57, Table, Wheel
+from roulette import Game, Passenger57, Table, Wheel, SimulationBuilder
 
 class TestGame:    
     def setup_method(self):
         self.random_seed = 1
         w = Wheel(seed=self.random_seed)
-        self.t = Table(100,5, w)
+        self.t = Table(100, w)
         self.p = Passenger57(self.t)
         self.g = Game(table=self.t)    
     
@@ -29,7 +29,19 @@ class TestGame:
         
         for o in outcomes:
             if self.p.black in o:
-                assert self.g.cycle(self.p) > 0
+                assert self.g.cycle(self.p)[0] > 0
             else:
-                assert self.g.cycle(self.p) == 0
+                assert self.g.cycle(self.p)[0] == 0
             
+    def test_game_cycle_reduces_rounds(self):
+        '''Checks that Player's remaining rounds reduces with each game cycle'''
+        sb = SimulationBuilder(table_limit=1000)
+        simulator = sb.get_simulator("passenger57")
+        
+        simulator.player.set_rounds(simulator.init_duration)
+        num_rounds = simulator.init_duration
+        for i in range(6):
+            assert simulator.player.rounds == num_rounds
+            simulator.game.cycle(simulator.player)
+            num_rounds -= 1
+        

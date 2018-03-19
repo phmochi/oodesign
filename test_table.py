@@ -11,16 +11,14 @@ class TestTable:
     '''
     def setup_method(self, method):
         wheel = Wheel()
-        self.table = Table(100,55,wheel)
+        self.table = Table(100, wheel)
     
     def test_invalid_bet(self):
-        with pytest.raises(InvalidBet):
-            self.table.place_bet(Bet(50, Outcome("0",35)))
             
         with pytest.raises(InvalidBet):
             self.table.place_bet(Bet(105, Outcome("0",35)))
             
-        table2 = Table(100,55, self.table.wheel)
+        table2 = Table(100, self.table.wheel)
         table2.place_bet(Bet(60, Outcome("0",35)))
         with pytest.raises(InvalidBet):
             self.table.place_bet(Bet(50, Outcome("0",35)))

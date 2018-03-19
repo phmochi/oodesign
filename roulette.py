@@ -358,9 +358,8 @@ class Table:
         minimum: The minimum bet allowed.
         bets: List of active bets.
     '''
-    def __init__(self, limit, minimum, wheel):
+    def __init__(self, limit, wheel):
         self.limit = limit
-        self.minimum = minimum
         self.bets = []
         self.wheel = wheel
         
@@ -380,8 +379,6 @@ class Table:
     
     def is_valid(self):
         if sum(x.amount for x in self.bets) > self.limit:
-            return False
-        if sum(x.amount < self.minimum for x in self.bets):
             return False
         return True
     
@@ -405,11 +402,13 @@ class Game:
             3. Iterates over Table's Bets and call corresponding win/lose function
             
         Returns:
-            Sum of win/loss amount for testing purposes.
+            1. Sum of win/loss amount for testing purposes.
+            2. Number of bets for testing purposes.
         '''
         if player.playing():
             player.place_bets()
         winning_outcomes = self.table.wheel.next()
+        player.winners(winning_outcomes)
         outcomes = []
         for b in self.table.bets:
             if b.outcome in winning_outcomes:
@@ -418,7 +417,7 @@ class Game:
                 outcomes.append(player.lose(b))         
         
         self.table.clear_bets()
-        return sum(outcomes)
+        return sum(outcomes), len(outcomes)
     
 class Player(abc.ABC):
     '''Abstract Player class.
@@ -433,9 +432,13 @@ class Player(abc.ABC):
         self.stake = None
         self.rounds = None
     
-    @abc.abstractmethod
     def playing(self):
-        raise NotImplementedError
+        if self.rounds is None or self.stake is None:
+            return False
+        if self.rounds > 0 and self.stake > 0:
+            return True
+        
+        return False
     
     @abc.abstractmethod
     def place_bets(self):
@@ -455,6 +458,16 @@ class Player(abc.ABC):
     def set_rounds(self, rounds):
         self.rounds = rounds
         
+    def winners(self, winners):        
+        '''Called every round to report winners
+        
+        Marks round end, so decrement remaining round counter.
+        Some Players do not have rounds (like passenger57), so only update rounds
+        if applicable.
+        '''
+        if self.rounds:
+            self.rounds -= 1
+        
 class Passenger57(Player):
     '''A test Player to check Game functionality.
     
@@ -462,7 +475,7 @@ class Passenger57(Player):
     Win/Lose returns True/False for testing in unittest.
     '''
     def __init__(self, table):
-        self.table = table
+        super().__init__(table)
         self.black = self.table.wheel.get_outcome("black")
         
     def place_bets(self):
@@ -470,7 +483,6 @@ class Passenger57(Player):
     
     def playing(self):
         return True
-    
     
 class Martingale(Player):
     '''Player that bets in Roulette.
@@ -480,36 +492,54 @@ class Martingale(Player):
     '''
     def __init__(self, table):
         super().__init__(table)
-        self.loss_count = 0
+        self.multiplier = 0
         self.black = table.wheel.get_outcome("black")
         
     def place_bets(self):
-        amount = 2**self.loss_count
+        amount = 2**self.multiplier
         if amount > self.table.limit:
             amount = self.table.limit
             
         if amount > self.stake:
             amount = self.stake
         
-        self.table.place_bet(Bet(amount, self.black))
         self.stake -= amount
+        self.table.place_bet(Bet(amount, self.black))
     
     def win(self, bet):
-        self.loss_count = 0
+        self.multiplier = 0
         self.stake += bet.amount
         return super().win(bet)
     
     def lose(self, bet):
-        self.loss_count += 1
+        self.multiplier += 1
         return super().lose(bet)
-        
-    def playing(self):
-        if self.rounds is None or self.stake is None:
-            return False
-        if self.rounds > 0 and self.stake >= self.table.minimum:
-            return True
-        
-        return False
+    
+#    def winners(self, winners):
+#        super().__winners__(winners)
+    
+class SevenReds(Martingale):
+    '''Player that bets in Roulette.
+    
+    Stragegy: Wait for 7 consecutive reds, then bets on black.
+    '''
+    def __init__(self, table):
+        super().__init__(table)
+        self.red_count = 0
+        self.red = self.table.wheel.get_outcome("red")
+        self.black = self.table.wheel.get_outcome("black")
+    
+    def place_bets(self):
+        multiplier = self.red_count - 7
+        if multiplier >= 0:
+            super().place_bets()
+    
+    def winners(self, winners):     
+        super().winners(winners)
+        if self.red in winners:
+            self.red_count += 1
+        else:
+            self.red_count = 0
     
 class Simulator:
     '''Simulator for gathering performance statistics on Player's strategy.
@@ -554,16 +584,60 @@ class Simulator:
         
         return stakes
     
-    def gather(self):
+    def gather(self, debug=False):
         for _ in range(self.samples):    
-            self.session()
+            if debug:
+                print(self.session())
+            else:
+                self.session()
+            
+class SimulationBuilder():
+    '''Wrapper to build simulators
+    
+    Simulators consist of:
+        1. Wheel
+        2. Table
+        3. Player
+        4. Game    
+    
+    SimulationBuilder builds everything up the Player, which may change.
+    
+    Functions:
+        get_simulator: takes a Player mode as input and returns the simulator
+            with the desired betting strategy.
+    '''
+    def __init__(self, table_limit, random_state=None):
+        if random_state:
+            wheel = Wheel(random_state)
+        else:
+            wheel = Wheel()
+            
+        table = Table(table_limit, wheel)
+        
+        self.game = Game(table)
+        self.pb = PlayerBuilder(table)
+        
+    def get_simulator(self, mode):
+        simulator = Simulator(self.game, self.pb.get_player(mode))
+        return simulator
+    
+class PlayerBuilder():
+    '''Wrapper to build Players from Table'''
+    def __init__(self, table):
+        self.table = table
+    def get_player(self, mode):
+        if mode == "martingale":
+            return Martingale(self.table)
+        elif mode == "sevenreds":
+            return SevenReds(self.table)
+        elif mode == "passenger57":
+            return Passenger57(self.table)
+        else:
+            raise ValueError
             
 if __name__ == "__main__":
-    wheel = Wheel()
-    table = Table(1000, 1, wheel)
-    game = Game(table)
-    player = Martingale(table)
-    simulator = Simulator(game, player)
-    simulator.gather()
+    sb = SimulationBuilder(table_limit=1000)
+    simulator = sb.get_simulator("sevenreds")
+    simulator.gather(debug=True)
     print(simulator.durations)
     print(simulator.maxima)

@@ -4,7 +4,7 @@ class TestSimulator():
     '''Checks that Simulator's results match a seeded simulation results.'''
     def setup_method(self):
         wheel = Wheel(1)
-        table = Table(100,1,wheel)
+        table = Table(100,wheel)
         martingale = Martingale(table)
         game = Game(table)
         
@@ -15,7 +15,7 @@ class TestSimulator():
         
     def test_simulator_session(self):
         simulation_wheel = Wheel(1)
-        simulation_table = Table(100,1,simulation_wheel)
+        simulation_table = Table(100,simulation_wheel)
         simulation_player = Martingale(simulation_table)
         simulation_player.set_rounds(self.simulator.init_duration)
         simulation_player.set_stake(self.simulator.init_stake)
