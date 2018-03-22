@@ -1,23 +1,25 @@
-import unittest
 from roulette import Bin, Outcome
 
-class TestBin(unittest.TestCase):
-    
+class TestBin:    
+    def setup_method(self):
+        self.o1 = Outcome("0", 35)
+        self.o2 = Outcome("00", 35)
+        
     def test_add_outcomes(self):
         '''Checks that Bin can accept a list of Outcome'''
-        o1 = Outcome("0", 35)
-        o2 = Outcome("00", 35)
-        b1 = Bin([o1,o2])
-        self.assertIn(o1, b1, "outcome not added to bin.")
-        self.assertIn(o2, b1, "outcome not added to bin.")
+        b1 = Bin([self.o1,self.o2])
+        assert self.o1 in b1
+        assert self.o2 in b1
         
     def test_multiple_references(self):
         '''Checks that Outcome can be in multiple Bins'''
-        o1 = Outcome("0", 35)
-        b1 = Bin([o1])
-        b2 = Bin([o1])
-        self.assertIn(o1, b1, "outcome not shared in bin.")
-        self.assertIn(o1, b2, "outcome not shared in bin.")    
+        b1 = Bin([self.o1])
+        b2 = Bin([self.o1])
+        assert self.o1 in b1
+        assert self.o1 in b2
         
-if __name__ == "__main__":
-    unittest.main()
+    def test_outcome_iterator(self):
+        b1 = Bin([self.o1, self.o2])
+        iterator = b1.get_outcome_iterator()
+        assert next(iterator) in [self.o1, self.o2]
+        assert next(iterator) in [self.o1, self.o2]

@@ -1,21 +1,20 @@
-import unittest
 import random
 from roulette import Outcome, Bin, Wheel
 
-class GIVEN_wheel_WHEN_next_THEN_random_choice(unittest.TestCase):
-    def setUp(self):
+class TestWheel:
+    def setup_method(self):
         self.wheel = Wheel(1)
         
     def test_initialize(self):
-        self.assertEqual(len(self.wheel.bins), 38, "Should be 38 bins.")
+        assert len(self.wheel.bins) == 38
         for b in self.wheel.bins:
-            self.assertGreater(len(b), 0, "Should be more than 0 Outcome in each bin.")
-            self.assertLess(len(b), 20, "Should be less than 20 Outcome in each bin.")
+            assert len(b) > 0
+            assert len(b) < 20
     
     def test_add_bin(self):
         b1 = Bin([Outcome("0", 35)])
         self.wheel.add_bin(10, b1)
-        self.assertEqual(self.wheel.get(10), b1, "Added bin doesn't match.")
+        assert self.wheel.get(10) == b1
         
     def test_next(self):
         r = random.Random()
@@ -27,28 +26,33 @@ class GIVEN_wheel_WHEN_next_THEN_random_choice(unittest.TestCase):
         self.wheel.add_bin(r.randint(0,38), b1)
         self.wheel.add_bin(r.randint(0,38), b2)
         
-        self.assertEqual(self.wheel.next(), b1, "Next doesn't return correct bin.")
-        self.assertEqual(self.wheel.next(), b2, "Next doesn't return correct bin.")
-        self.assertNotEqual(self.wheel.next(), b2, "Next should not return same bin.")
+        assert self.wheel.next() == b1
+        assert self.wheel.next() == b2
+        assert self.wheel.next() != b2
         
     def test_add_outcome(self):
         o1 = Outcome("test",35)
         
         self.wheel.add_outcome(4, o1)
-        self.assertIn(o1, self.wheel.get(4), "Bin not equivalent after adding Outcome.")
+        assert o1 in self.wheel.get(4)
         
     def test_get_bin(self):
         b1 = Bin([Outcome("Red", 5)])
         self.wheel.add_bin(3, b1)
-        self.assertEqual(self.wheel.get(3), b1, "Retrieved bin not correct.")
+        assert self.wheel.get(3) == b1
         
     def test_get_outcome(self):
         o1 = Outcome("0", 35)
         self.wheel.add_outcome(4, o1)
-        self.assertEqual(self.wheel.get_outcome("0"), o1, 
-                         "Get Outcome returns incorrect Outcome.")
-        self.assertEqual(self.wheel.get_outcome("gibberish"), None,
-                         "Get Outcome that doesn't exist should return None.")
-    
-if __name__ == "__main__":
-    unittest.main()
+        
+        assert self.wheel.get_outcome("0") == o1
+        assert self.wheel.get_outcome("gibberish") == None
+        
+    def test_get_bin_iterator(self):
+        iterator = self.wheel.get_all_bins()
+        for i in range(37):
+            bin_iter = next(iterator)
+            assert isinstance(bin_iter, Bin) == True
+            assert self.wheel.get_outcome("{}".format(i)) in bin_iter.get_outcome_iterator()
+        
+        assert self.wheel.get_outcome("00") in next(iterator)

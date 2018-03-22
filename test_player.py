@@ -1,9 +1,10 @@
 from roulette import Wheel, SimulationBuilder
+import random
 
 class TestPlayer:
     '''Checks that various Player classes bet as their strategy recommends'''
     def setup_method(self):
-        self.sb = SimulationBuilder(table_limit=100, random_state=1)
+        self.sb = SimulationBuilder(table_limit=1000, seed=1)
         
     def test_martingale_bet(self):
         '''Test Martingale's bets update correctly.'''
@@ -83,3 +84,15 @@ class TestPlayer:
                 
             game.cycle(simulator.player)
             assert simulator.player.red_count == red_streak
+            
+    def test_player_random(self):
+        '''Checks that PlayerRandom bets the same as pseudorandom.'''
+        simulator = self.sb.get_simulator("random")
+        simulator.player.set_rounds(simulator.init_duration)
+        simulator.player.set_stake(simulator.init_stake)
+        
+        all_outcomes = simulator.game.table.wheel.get_all_outcomes()
+        
+        r = random.Random(1)
+        for _ in range(5):
+            assert r.sample(all_outcomes, 1)[0] == simulator.player.place_bets().outcome

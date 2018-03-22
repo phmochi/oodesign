@@ -47,7 +47,8 @@ class Bin(frozenset):
     
     Contains a collection of winning Outcomes for the corresponding bin.
     '''
-    pass
+    def get_outcome_iterator(self):
+        return iter(self)
 
 class Wheel:
     '''Manages and randomly selects a bin to simulate a roulette wheel.
@@ -79,7 +80,7 @@ class Wheel:
     def add_outcome(self, bin, outcome):
         if outcome not in self.all_outcomes:
             self.all_outcomes.add(outcome)
-        self.bins[bin] |= Bin([outcome])
+        self.bins[bin] = Bin(self.bins[bin] | Bin([outcome]))
         
     def get_outcome(self, name):
         outcome = [oc for oc in self.all_outcomes if oc.name == name]
@@ -96,6 +97,12 @@ class Wheel:
     
     def get(self, idx):
         return self.bins[idx]
+    
+    def get_all_bins(self):
+        return iter(self.bins)
+    
+    def get_all_outcomes(self):
+        return self.all_outcomes
     
 class BinBuilder:
     '''Adds winning Outcomes to each bin on the wheel'''
@@ -436,8 +443,7 @@ class Player(abc.ABC):
         if self.rounds is None or self.stake is None:
             return False
         if self.rounds > 0 and self.stake > 0:
-            return True
-        
+            return True   
         return False
     
     @abc.abstractmethod
@@ -521,7 +527,11 @@ class Martingale(Player):
 class SevenReds(Martingale):
     '''Player that bets in Roulette.
     
-    Stragegy: Wait for 7 consecutive reds, then bets on black.
+    Strategy: Wait for 7 consecutive reds, then bets on black.
+    
+    Functions:
+        place_bets: bets with the same strategy as martingale after 7 consecutive
+            reds.
     '''
     def __init__(self, table):
         super().__init__(table)
@@ -540,6 +550,31 @@ class SevenReds(Martingale):
             self.red_count += 1
         else:
             self.red_count = 0
+            
+                        
+class PlayerRandom(Player):
+    '''Player that bets randomly.
+    
+    Strategy: Bets on random Outcome.
+    
+    Functions:
+        place_bets: get all possible Outcomes and bet on 1 randomly.
+    '''
+    def __init__(self, table, seed=None):
+        super().__init__(table)
+        if seed:
+            self.rng = random.Random(seed)
+        else:
+            self.rng = random.Random()
+            
+    def place_bets(self):
+        all_outcomes = self.table.wheel.get_all_outcomes()
+        outcome = self.rng.sample(all_outcomes, 1)[0]
+        bet = Bet(self.stake, outcome)
+        
+        self.table.place_bet(bet)
+        return bet
+        
     
 class Simulator:
     '''Simulator for gathering performance statistics on Player's strategy.
@@ -619,9 +654,10 @@ class SimulationBuilder():
         get_simulator: takes a Player mode as input and returns the simulator
             with the desired betting strategy.
     '''
-    def __init__(self, table_limit, random_state=None):
-        if random_state:
-            wheel = Wheel(random_state)
+    def __init__(self, table_limit, seed=None):
+        self.seed = seed
+        if self.seed:
+            wheel = Wheel(seed)
         else:
             wheel = Wheel()
             
@@ -631,22 +667,26 @@ class SimulationBuilder():
         self.pb = PlayerBuilder(table)
         
     def get_simulator(self, mode):
-        simulator = Simulator(self.game, self.pb.get_player(mode))
+        simulator = Simulator(self.game, self.pb.get_player(mode, self.seed))
         return simulator
     
 class PlayerBuilder():
     '''Wrapper to build Players from Table'''
     def __init__(self, table):
         self.table = table
-    def get_player(self, mode):
+    def get_player(self, mode, seed):
         if mode == "martingale":
             return Martingale(self.table)
         elif mode == "sevenreds":
             return SevenReds(self.table)
         elif mode == "passenger57":
             return Passenger57(self.table)
+        elif mode == "random":
+            return PlayerRandom(self.table, seed)
         else:
             raise ValueError
+
+    
             
 if __name__ == "__main__":
     sb = SimulationBuilder(table_limit=1000)
